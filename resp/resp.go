@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"strings"
 	"strconv"
+	"strings"
 )
 
 type Resp struct {
@@ -21,7 +21,7 @@ func (r *Resp) readLine() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSuffix(line, "\r\n"), nil
+	return strings.TrimRight(line, "\r\n"), nil
 }
 
 func (r *Resp) Read() (Value, error) {
@@ -29,6 +29,8 @@ func (r *Resp) Read() (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
+
+	fmt.Printf("Received first byte: %q (%d)\n", _type, _type)
 
 	switch _type {
 	case '+': // Simple Strings
@@ -85,9 +87,9 @@ func (r *Resp) Read() (Value, error) {
 	}
 }
 
-func Respond(writer io.Writer, val Value) error{
+func Respond(writer io.Writer, val Value) error {
 	switch val.Type {
-	case "string": 
+	case "string":
 		_, err := fmt.Fprintf(writer, "+%s\r\n", val.Str)
 		return err
 	case "error":
@@ -106,15 +108,15 @@ func Respond(writer io.Writer, val Value) error{
 		}
 		for _, v := range val.Array {
 			err := Respond(writer, v)
-		if err != nil {
-			return err
-		}
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	case "nil":
 		_, err := fmt.Fprintf(writer, "$-1\r\n")
 		return err
-	default: 
+	default:
 		return fmt.Errorf("unknown RESP type to respond: %s", val.Type)
 	}
 }
