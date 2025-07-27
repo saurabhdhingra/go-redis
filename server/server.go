@@ -12,7 +12,18 @@ import (
 	"github.com/saurabhdhingra/go-redis/store"
 )
 
-func HandleConnection(conn net.Conn, store *store.KeyValueStore) {
+// Add a wrapper to pass role and masterAddr to each connection
+type ServerInfo struct {
+	Role       string
+	MasterAddr string
+}
+
+func HandleConnectionWithRole(conn net.Conn, store *store.KeyValueStore, role, masterAddr string) {
+	info := &ServerInfo{Role: role, MasterAddr: masterAddr}
+	HandleConnectionWithInfo(conn, store, info)
+}
+
+func HandleConnectionWithInfo(conn net.Conn, store *store.KeyValueStore, info *ServerInfo) {
 	defer conn.Close()
 
 	respReader := resp.NewResp(conn)
@@ -46,6 +57,21 @@ func HandleConnection(conn net.Conn, store *store.KeyValueStore) {
 			}
 
 			switch command {
+			case "INFO":
+				// Compose info string
+				infoLines := []string{
+					"role:" + info.Role,
+				}
+				if info.Role == "master" {
+					infoLines = append(infoLines, "connected_slaves:0")
+					infoLines = append(infoLines, "master_replid:0000000000000000000000000000000000000000")
+					infoLines = append(infoLines, "master_repl_offset:0")
+				} else {
+					infoLines = append(infoLines, "master_host:"+info.MasterAddr)
+					infoLines = append(infoLines, "master_link_status:up")
+				}
+				resp.Respond(conn, resp.Value{Type: "bulk", Bulk: strings.Join(infoLines, "\r\n")})
+				continue
 			case "PING":
 				resp.Respond(conn, resp.Value{Type: "string", Str: "PONG"})
 			case "ECHO":
